@@ -1,0 +1,29 @@
+*** ../../ek16/kermit.h	2011-03-30 13:13:04.814335000 -0400
+--- kermit.h	2011-06-06 15:36:54.700435000 -0400
+***************
+*** 1,7 ****
+  #ifndef __KERMIT_H__
+  #define __KERMIT_H__
+  
+! #define VERSION "1.6"			/* Kermit module version number */
+  
+  /*
+    kermit.h -- Symbol and struct definitions for embedded Kermit.
+--- 1,7 ----
+  #ifndef __KERMIT_H__
+  #define __KERMIT_H__
+  
+! #define VERSION "1.7"			/* Kermit module version number */
+  
+  /*
+    kermit.h -- Symbol and struct definitions for embedded Kermit.
+***************
+*** 388,393 ****
+--- 388,394 ----
+      int zincnt;				/* Input buffer position */
+      int zinlen;				/* Length of input file buffer */
+      UCHAR * zinptr;			/* Pointer to input file buffer */
++     int bctf;				/* Flag to force type 3 block check */
+      int dummy;
+  };
+  

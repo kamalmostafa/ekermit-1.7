@@ -1,0 +1,64 @@
+*** ../../ek16/main.c	2011-03-30 12:40:53.830806000 -0400
+--- main.c	2011-06-06 15:33:45.997789000 -0400
+***************
+*** 124,130 ****
+  #endif /* RECVONLY */
+      fprintf(stderr," -p [neoms]   Parity: none, even, odd, mark, space\n");
+  #ifdef F_CRC
+!     fprintf(stderr," -b [123]     Block check type: 1, 2, or 3\n");
+  #endif /* F_CRC */
+      fprintf(stderr," -k           Keep incompletely received files\n");
+      fprintf(stderr," -B           Force binary mode\n");
+--- 124,130 ----
+  #endif /* RECVONLY */
+      fprintf(stderr," -p [neoms]   Parity: none, even, odd, mark, space\n");
+  #ifdef F_CRC
+!     fprintf(stderr," -b [1235]    Block check type: 1, 2, 3, or 5\n");
+  #endif /* F_CRC */
+      fprintf(stderr," -k           Keep incompletely received files\n");
+      fprintf(stderr," -B           Force binary mode\n");
+***************
+*** 219,225 ****
+  	    }
+  	    if (c == 'b') {
+  		check = atoi(*xargv);
+! 		if (check < 1 || check > 3)
+  		  fatal("Invalid block check",(char *)0,(char *)0);
+  #ifdef DEBUG
+  	    } else if (c == 'E') {
+--- 219,225 ----
+  	    }
+  	    if (c == 'b') {
+  		check = atoi(*xargv);
+! 		if (check < 1 || check > 5 || check == 4)
+  		  fatal("Invalid block check",(char *)0,(char *)0);
+  #ifdef DEBUG
+  	    } else if (c == 'E') {
+***************
+*** 338,344 ****
+      k.remote = remote;			/* Remote vs local */
+      k.binary = ftype;			/* 0 = text, 1 = binary */
+      k.parity = parity;                  /* Communications parity */
+!     k.bct = check;			/* Block check type */
+      k.ikeep = keep;			/* Keep incompletely received files */
+      k.filelist = cmlist;		/* List of files to send (if any) */
+      k.cancel = 0;			/* Not canceled yet */
+--- 338,344 ----
+      k.remote = remote;			/* Remote vs local */
+      k.binary = ftype;			/* 0 = text, 1 = binary */
+      k.parity = parity;                  /* Communications parity */
+!     k.bct = (check == 5) ? 3 : check;	/* Block check type */
+      k.ikeep = keep;			/* Keep incompletely received files */
+      k.filelist = cmlist;		/* List of files to send (if any) */
+      k.cancel = 0;			/* Not canceled yet */
+***************
+*** 367,372 ****
+--- 367,374 ----
+  #else
+      k.dbf    = 0;
+  #endif /* DEBUG */
++     /* Force Type 3 Block Check (16-bit CRC) on all packets, or not */
++     k.bctf   = (check == 5) ? 1 : 0;
+  
+  /* Initialize Kermit protocol */
+  

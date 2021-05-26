@@ -1,0 +1,232 @@
+*** ../../ek16/kermit.c	2011-03-30 12:40:09.705176000 -0400
+--- kermit.c	2011-06-06 16:24:13.034202000 -0400
+***************
+*** 1,8 ****
+  #define KERMIT_C
+  /*
+    Embedded Kermit protocol module
+!   Version: 1.6
+!   Most Recent Update: Wed Mar 30 12:39:11 2011
+  
+    No stdio or other runtime library calls, no system calls, no system 
+    includes, no static data, and no global variables in this module.
+--- 1,8 ----
+  #define KERMIT_C
+  /*
+    Embedded Kermit protocol module
+!   Version: 1.7
+!   Most Recent Update: Mon Jun  6 15:36:26 2011
+  
+    No stdio or other runtime library calls, no system calls, no system 
+    includes, no static data, and no global variables in this module.
+***************
+*** 98,104 ****
+  
+      int i, j, rc;			/* Workers */
+      int datalen;                        /* Length of packet data field */
+-     int bctu;				/* Block check type for this packet */
+      UCHAR *p;                           /* Pointer to packet data field */
+      UCHAR *q;                           /* Pointer to data to be checked */
+      UCHAR *s;				/* Worker string pointer */
+--- 98,103 ----
+***************
+*** 313,319 ****
+          }
+  	debug(DB_MSG,"HDR CHKSUM OK",0,0);
+          p[2] = c;                       /* Put checksum back */
+!         datalen = xunchar(p[0])*95 + xunchar(p[1]) - k->bct; /* Data length */
+          p += 3;                         /* Fix data pointer */
+          k->ipktinfo[r_slot].dat = p;	/* Permanent record of data pointer */
+      } else {                            /* Regular packet */
+--- 312,319 ----
+          }
+  	debug(DB_MSG,"HDR CHKSUM OK",0,0);
+          p[2] = c;                       /* Put checksum back */
+! 	/* Data length */
+!         datalen = xunchar(p[0])*95 + xunchar(p[1]) - ((k->bctf) ? 3 : k->bct);
+          p += 3;                         /* Fix data pointer */
+          k->ipktinfo[r_slot].dat = p;	/* Permanent record of data pointer */
+      } else {                            /* Regular packet */
+***************
+*** 323,334 ****
+--- 323,342 ----
+      }
+  #endif /* F_LP */
+  #ifdef F_CRC
++     if (k->bctf) {			/* FORCE 3 */
++ 	chklen = 3;
++     } else {
+  	if (t == 'S' || k->state == S_INIT) { /* S-packet was retransmitted? */
++ 	    if (q[10] == '5') {		/* Block check type requested is 5 */
++ 		k->bctf = 1;		/* FORCE 3 */
++ 		chklen = 3;
++ 	    }
+  	    chklen = 1;			/* Block check is always type 1 */
+  	    datalen = k->ipktinfo[r_slot].len - 3; /* Data length */
+  	} else {
+  	    chklen = k->bct;
+  	}
++     }
+  #else
+      chklen = 1;				/* Block check is always type 1 */
+      datalen = k->ipktinfo[r_slot].len - 3; /* Data length */
+***************
+*** 1031,1036 ****
+--- 1039,1045 ----
+          if ((k->bct < 1) || (k->bct > 3))
+  #endif /* F_CRC */
+  	  k->bct = 1;
++ 	if (k->bctf) k->bct = 3;
+      }
+      if (datalen >= 9) {                 /* Repeat counts */
+          if ((s[9] > 32 && s[9] < 63) || (s[9] > 95 && s[9] < 127)) {
+***************
+*** 1120,1126 ****
+        d[ 6] = k->ebq = '&';           /* I need to request it */
+      else                                /* else just agree with other Kermit */
+        d[ 6] = k->ebq;
+!     d[ 7] = k->bct + '0';               /* Block check type */
+      d[ 8] = k->rptq;			/* Repeat prefix */
+      d[ 9] = tochar(k->capas);           /* Capability bits */
+      d[10] = tochar(k->window);          /* Window size */
+--- 1129,1138 ----
+        d[ 6] = k->ebq = '&';           /* I need to request it */
+      else                                /* else just agree with other Kermit */
+        d[ 6] = k->ebq;
+!     if (k->bctf)			/* Block check type */
+!       d[7] = '5';			/* FORCE 3 */
+!     else
+!       d[7] = k->bct + '0';		/* Normal */
+      d[ 8] = k->rptq;			/* Repeat prefix */
+      d[ 9] = tochar(k->capas);           /* Capability bits */
+      d[10] = tochar(k->window);          /* Window size */
+***************
+*** 1136,1143 ****
+--- 1148,1157 ----
+  #endif /* F_LP */
+  
+  #ifdef F_CRC
++     if (!(k->bctf)) {			/* Unless FORCE 3 */
+  	b = k->bct;
+  	k->bct = 1;			/* Always use block check type 1 */
++     }
+  #endif /* F_CRC */
+      switch (type) {
+        case 'Y':				/* This is an ACK for packet 0 */
+***************
+*** 1150,1156 ****
+--- 1164,1172 ----
+  	rc = -1;
+      }
+  #ifdef F_CRC
++     if (!(k->bctf)) {			/* Unless FORCE 3 */
+  	k->bct = b;
++     }
+  #endif /* F_CRC */
+      return(rc);                         /* Pass along return code. */
+  }
+***************
+*** 1510,1516 ****
+--- 1526,1534 ----
+  
+  STATIC void
+  epkt(char * msg, struct k_data * k) {
++     if (!(k->bctf)) {			/* Unless FORCE 3 */
+  	k->bct = 1;
++     }
+      (void) spkt('E', 0, -1, (UCHAR *) msg, k);
+  }
+  
+*** ../../ek16/kermit.h	2011-03-30 13:13:04.814335000 -0400
+--- kermit.h	2011-06-06 15:36:54.700435000 -0400
+***************
+*** 1,7 ****
+  #ifndef __KERMIT_H__
+  #define __KERMIT_H__
+  
+! #define VERSION "1.6"			/* Kermit module version number */
+  
+  /*
+    kermit.h -- Symbol and struct definitions for embedded Kermit.
+--- 1,7 ----
+  #ifndef __KERMIT_H__
+  #define __KERMIT_H__
+  
+! #define VERSION "1.7"			/* Kermit module version number */
+  
+  /*
+    kermit.h -- Symbol and struct definitions for embedded Kermit.
+***************
+*** 388,393 ****
+--- 388,394 ----
+      int zincnt;				/* Input buffer position */
+      int zinlen;				/* Length of input file buffer */
+      UCHAR * zinptr;			/* Pointer to input file buffer */
++     int bctf;				/* Flag to force type 3 block check */
+      int dummy;
+  };
+  
+*** ../../ek16/main.c	2011-03-30 12:40:53.830806000 -0400
+--- main.c	2011-06-06 15:33:45.997789000 -0400
+***************
+*** 124,130 ****
+  #endif /* RECVONLY */
+      fprintf(stderr," -p [neoms]   Parity: none, even, odd, mark, space\n");
+  #ifdef F_CRC
+!     fprintf(stderr," -b [123]     Block check type: 1, 2, or 3\n");
+  #endif /* F_CRC */
+      fprintf(stderr," -k           Keep incompletely received files\n");
+      fprintf(stderr," -B           Force binary mode\n");
+--- 124,130 ----
+  #endif /* RECVONLY */
+      fprintf(stderr," -p [neoms]   Parity: none, even, odd, mark, space\n");
+  #ifdef F_CRC
+!     fprintf(stderr," -b [1235]    Block check type: 1, 2, 3, or 5\n");
+  #endif /* F_CRC */
+      fprintf(stderr," -k           Keep incompletely received files\n");
+      fprintf(stderr," -B           Force binary mode\n");
+***************
+*** 219,225 ****
+  	    }
+  	    if (c == 'b') {
+  		check = atoi(*xargv);
+! 		if (check < 1 || check > 3)
+  		  fatal("Invalid block check",(char *)0,(char *)0);
+  #ifdef DEBUG
+  	    } else if (c == 'E') {
+--- 219,225 ----
+  	    }
+  	    if (c == 'b') {
+  		check = atoi(*xargv);
+! 		if (check < 1 || check > 5 || check == 4)
+  		  fatal("Invalid block check",(char *)0,(char *)0);
+  #ifdef DEBUG
+  	    } else if (c == 'E') {
+***************
+*** 338,344 ****
+      k.remote = remote;			/* Remote vs local */
+      k.binary = ftype;			/* 0 = text, 1 = binary */
+      k.parity = parity;                  /* Communications parity */
+!     k.bct = check;			/* Block check type */
+      k.ikeep = keep;			/* Keep incompletely received files */
+      k.filelist = cmlist;		/* List of files to send (if any) */
+      k.cancel = 0;			/* Not canceled yet */
+--- 338,344 ----
+      k.remote = remote;			/* Remote vs local */
+      k.binary = ftype;			/* 0 = text, 1 = binary */
+      k.parity = parity;                  /* Communications parity */
+!     k.bct = (check == 5) ? 3 : check;	/* Block check type */
+      k.ikeep = keep;			/* Keep incompletely received files */
+      k.filelist = cmlist;		/* List of files to send (if any) */
+      k.cancel = 0;			/* Not canceled yet */
+***************
+*** 367,372 ****
+--- 367,374 ----
+  #else
+      k.dbf    = 0;
+  #endif /* DEBUG */
++     /* Force Type 3 Block Check (16-bit CRC) on all packets, or not */
++     k.bctf   = (check == 5) ? 1 : 0;
+  
+  /* Initialize Kermit protocol */
+  
