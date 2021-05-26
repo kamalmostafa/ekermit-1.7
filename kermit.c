@@ -699,7 +699,7 @@ kermit(short f,				/* Function code */
             }
 	    r->status = k->state;
             freerslot(k,r_slot);
-
+	    return(rc);			/* 2021-05-26 <kamal@whence.com> */
         } else {
             epkt("Unexpected packet type",k);
             return(X_ERROR);
